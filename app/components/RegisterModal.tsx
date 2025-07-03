@@ -40,7 +40,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isOpen, onClose, onSwitch
 
   const handleRegister = async () => {
     try {
-      const response = await fetch('https://your-api-url/register', {
+      const response = await fetch('https://pathfinder-2-vhjw.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
