@@ -1,476 +1,602 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import ChangePasswordModal from './ChangePasswordModal'; // Import ChangePasswordModal
-import LogoutConfirmationModal from './LogoutConfirmationModal'; // Import LogoutConfirmationModal
-import { FaTimes, FaChevronDown, FaUserCircle, FaUser, FaCog, FaQuestionCircle, FaSignOutAlt, FaBell, FaFileAlt, FaPencilAlt, FaStar } from 'react-icons/fa'; // Import icons
-import { MdHelpOutline } from 'react-icons/md'; // Import MdHelpOutline for feedback icon
-import { useAuth } from '@/app/context/AuthContext'; // Import useAuth for logout
+import ChangePasswordModal from './ChangePasswordModal';
+import LogoutConfirmationModal from './LogoutConfirmationModal';
+import {
+  FaTimes,
+  FaChevronDown,
+  FaUserCircle,
+  FaUser,
+  FaCog,
+  FaQuestionCircle,
+  FaSignOutAlt,
+  FaFileAlt,
+  FaPencilAlt,
+  FaStar,
+} from 'react-icons/fa';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialSection?: string; // Add optional initialSection prop
+  initialSection?: string;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, initialSection = 'Profile' }) => {
-  const { logout } = useAuth(); // Access the logout function
-  const [activeSection, setActiveSection] = useState(initialSection); // Use initialSection as default
-  const [email, setEmail] = useState('andrewglenthgarcia2@gmail.com');
-  const [username, setUsername] = useState('Drew27');
-  const [firstName, setFirstName] = useState('Andrew');
-  const [middleName, setMiddleName] = useState('Glenth');
-  const [lastName, setLastName] = useState('Garcia');
-  const [extension, setExtension] = useState('');
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false); // Add state for LogoutConfirmationModal
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false);
-  const [faqs] = useState([
-    { question: "What is PathFinder?", answer: "PathFinder is a web-based system that recommends three suitable college programs for Senior High School (SHS) graduates based on their personality, knowledge, and scholastic records." },
-    { question: "Who can use PathFinder?", answer: "PathFinder is specifically designed for SHS graduates from the ABM, STEM, and HUMSS strands." },
-    { question: "How does PathFinder work?", answer: "The system analyzes your inputs from a personality test, knowledge assessment, and academic performance to suggest three best-fit college programs." },
-    { question: "Is PathFinder free to use?", answer: "Yes, PathFinder is completely free to use for all users." },
-    { question: "Do I need to create an account to use PathFinder?", answer: "Yes, you need to create an account to access the features and receive personalized program recommendations." },
-    { question: "What kind of recommendations will I receive?", answer: "PathFinder will suggest three college programs that are most aligned with your strengths, interests, and academic background." },
-    { question: "Are the results saved?", answer: "Yes, your results and progress are saved to your account for future reference." },
-    { question: "Can I edit my profile?", answer: "Yes, you can update your personal information anytime after logging into your account." },
-    { question: "Is my data secure on PathFinder?", answer: "Yes, we prioritize user privacy and ensure that your data is securely stored and not shared without your consent." },
-    { question: "Can I use PathFinder on mobile devices?", answer: "Yes, PathFinder is fully responsive and can be accessed through smartphones, tablets, and desktops." },
-    { question: "How long does the assessment take?", answer: "The full assessment usually takes around 3 hours to complete." },
-    { question: "Can I get a copy of my recommended programs?", answer: "Yes, you can view and download your recommended programs once the assessment is complete." }
-  ]);
-  const [activeQuestion, setActiveQuestion] = useState<number | null>(null);
-  const [isSaveConfirmationOpen, setIsSaveConfirmationOpen] = useState(false); // Add state for save confirmation
-  const [recommendedPrograms] = useState([
-    { program: "Computer Science", personalityScore: 85, knowledgeScore: 90 },
-    { program: "Business Administration", personalityScore: 80, knowledgeScore: 85 },
-    { program: "Psychology", personalityScore: 88, knowledgeScore: 82 },
-  ]);
-  const [personalityType] = useState("Social"); // Example personality type
-  const [knowledgePercentage] = useState(85); // Example knowledge test percentage
-    const [isEditing, setIsEditing] = useState(false); // Add state for editing mode
-  const [originalProfile, setOriginalProfile] = useState({
-    email,
-    username,
-    firstName,
-    middleName,
-    lastName,
-    extension,
-  }); // Store original profile data
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false); // Add state for feedback modal
-  const [rating, setRating] = useState<number | null>(null); // Add state for rating
-  const [comments, setComments] = useState(''); // Add state for comments
+interface Program {
+  program_id: number;
+  program_name: string;
+  program_details?: string;
+}
 
+const ProfileModal: React.FC<ProfileModalProps> = ({
+  isOpen,
+  onClose,
+  initialSection = 'Profile',
+}) => {
+  const { logout } = useAuth();
+  const [activeSection, setActiveSection] = useState(initialSection);
+  const [user, setUser] = useState<any>(null);
+  const [recommendedPrograms, setRecommendedPrograms] = useState<Program[]>([]);
+  const [personalityType, setPersonalityType] = useState<string[]>([]);
+  const [knowledgeScore, setKnowledgeScore] = useState<
+    { subject: string; score: number }[]
+  >([]);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState<number | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+  const [isLLMOpen, setIsLLMOpen] = useState(false);
+  const [selectedLLM, setSelectedLLM] = useState("gpt-5.1"); // default backend key
+  const AVAILABLE_LLMS = [
+    { name: "MiniChat 2-3B", key: "minichat" }
+    // { name: "Qwen 2-7B", key: "qwen" },
+    // { name: "GPT-5.1", key: "gpt-5.1" },
+    // { name: "Claude 3.7", key: "claude-3.7" },
+    // { name: "Gemini 2.0 Flash", key: "gemini-2.0" },
+  ];
+
+
+  // Feedback states
+  const [rating, setRating] = useState<number | null>(null);
+  const [comments, setComments] = useState('');
+  const [submittedFeedback, setSubmittedFeedback] = useState<{ rating: number; comments: string } | null>(null);
+
+  
+  const [faqs] = useState([
+    {
+      question: 'What is PathFinder?',
+      answer:
+        'PathFinder recommends three suitable college programs for Senior High School (SHS) graduates based on their personality, knowledge, and scholastic records.',
+    },
+    {
+      question: 'Who can use PathFinder?',
+      answer: 'PathFinder is for SHS graduates from the ABM, STEM, and HUMSS strands.',
+    },
+  ]);
+    useEffect(() => {
+      const saved = localStorage.getItem("darkMode");
+      if (saved) setIsDarkMode(saved === "true");
+    }, []);
+
+    useEffect(() => {
+      localStorage.setItem("darkMode", isDarkMode.toString());
+    }, [isDarkMode]);
+
+    useEffect(() => {
+      const stored = localStorage.getItem("preferredLLM");
+      if (stored) setSelectedLLM(stored);
+    }, []);
+
+  useEffect(() => {
+    localStorage.setItem("preferredLLM", selectedLLM);
+  }, [selectedLLM]);
+
+
+  // 🟤 Fetch Profile, Result, and Feedback
+    useEffect(() => {
+    const fetchProfileData = async () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // ✅ Handle expired or invalid token
+        if (res.status === 401) {
+          console.warn('⚠️ Token expired or invalid. Logging out...');
+          logout();
+          alert('Your session has expired. Please log in again.');
+          onClose(); // Close ProfileModal
+          return;
+        }
+
+        if (!res.ok) {
+          console.error('Failed to fetch profile:', res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        setUser(data.user);
+        setRecommendedPrograms(data.recommended_programs || []);
+
+        // Personality list (array)
+        setPersonalityType(data.personalities || []);
+
+        // Strong Knowledge Area (top 3 array)
+        if (Array.isArray(data.strong_knowledge_area)) {
+          setKnowledgeScore(data.strong_knowledge_area);
+        } else {
+          setKnowledgeScore([]);
+        }
+
+        // ✅ Fetch feedback if exists
+        if (data.user?.user_id) {
+          const feedbackRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/feedback/${data.user.user_id}`
+          );
+          if (feedbackRes.ok) {
+            const feedbackData = await feedbackRes.json();
+            if (feedbackData?.has_feedback) {
+              setSubmittedFeedback({
+                rating: feedbackData.feedback,
+                comments: feedbackData.comments || '',
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching profile data:', err);
+        // Optional: show a friendly alert if server is unreachable
+        alert('Unable to connect to the server. Please try again later.');
+      }
+    };
+
+    if (isOpen) fetchProfileData();
+  }, [isOpen]);
+
+  // 🔸 Toggle FAQ
   const toggleQuestion = (index: number) => {
     setActiveQuestion(activeQuestion === index ? null : index);
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaveConfirmationOpen(true); // Open save confirmation popup
-  };
-
-  const confirmSave = () => {
-    console.log('Profile saved:', { email, username, firstName, middleName, lastName, extension });
-    setIsSaveConfirmationOpen(false); // Close confirmation popup
-    setActiveSection('Profile'); // Return to viewing state
-  };
-
-  const handleEditToggle = () => {
-    if (isEditing) {
-      // Revert changes if canceling
-      setEmail(originalProfile.email);
-      setUsername(originalProfile.username);
-      setFirstName(originalProfile.firstName);
-      setMiddleName(originalProfile.middleName);
-      setLastName(originalProfile.lastName);
-      setExtension(originalProfile.extension);
-    } else {
-      // Save current state as original when entering edit mode
-      setOriginalProfile({ email, username, firstName, middleName, lastName, extension });
+  // 🔸 Fetch Program Description
+  const fetchProgramDescription = async (programName: string) => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/program-description?program_name=${encodeURIComponent(programName)}`
+      );
+      const data = await res.json();
+      setSelectedProgram({ program_id: 0, program_name: programName, program_details: data.description });
+    } catch (err) {
+      console.error('Failed to fetch program description:', err);
     }
-    setIsEditing(!isEditing); // Toggle editing mode
   };
-
-  useEffect(() => {
-    setActiveSection(initialSection); // Update active section when initialSection changes
-  }, [initialSection]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-gray-300 rounded-3xl shadow-lg w-[70vw] h-[90vh] relative overflow-hidden flex">
-        {/* Sidebar */}
-        <div className="w-1/3 bg-brown-1 text-black flex flex-col overflow-y-auto rounded-3xl"> {/* Increased width and added rounded-xl */}
-          <div className="flex flex-col items-center mt-8 mb-4">
-            <FaUserCircle className="text-9xl mb-6 mt-6" />
-            <p className="text-2xl font-semibold mb-4">Welcome, {username}</p>
-          </div>
-          <div className="flex flex-col mt-4 gap-4 px-4"> {/* Added gap and padding */}
-            <button
-              className={`py-6 px-6 text-left w-full flex items-center gap-8 rounded-lg ${
-                activeSection === 'Profile' ? 'bg-brown-6 text-white' : 'bg-transparent hover:bg-brown-6 hover:text-white'
-              }`}
-              onClick={() => setActiveSection('Profile')}
-            >
-              <FaUser className={`text-4xl ${activeSection === 'Profile' ? 'text-white' : ''}`} /> 
-              <span>Profile</span>
-            </button>
-            <button
-              className={`py-6 px-6 text-left w-full flex items-center gap-8 rounded-lg ${
-                activeSection === 'Result' ? 'bg-brown-6 text-white' : 'bg-transparent hover:bg-brown-6 hover:text-white'
-              }`}
-              onClick={() => setActiveSection('Result')}
-            >
-              <FaFileAlt className={`text-4xl ${activeSection === 'Result' ? 'text-white' : ''}`} /> 
-              <span>Result</span>
-            </button>
-            <button
-              className={`py-6 px-6 text-left w-full flex items-center gap-8 rounded-lg ${
-                activeSection === 'Settings' ? 'bg-brown-6 text-white' : 'bg-transparent hover:bg-brown-6 hover:text-white'
-              }`}
-              onClick={() => setActiveSection('Settings')}
-            >
-              <FaCog className={`text-4xl ${activeSection === 'Settings' ? 'text-white' : ''}`} /> 
-              <span>Settings</span>
-            </button>
-            <button
-              className={`py-6 px-6 text-left w-full flex items-center gap-8 rounded-lg ${
-                activeSection === 'Feedback' ? 'bg-brown-6 text-white' : 'bg-transparent hover:bg-brown-6 hover:text-white'
-              }`}
-              onClick={() => setActiveSection('Feedback')}
-            >
-              <FaPencilAlt className={`text-4xl ${activeSection === 'Feedback' ? 'text-white' : ''}`} />
-              <span>Feedback</span>
-            </button>
-            <button
-              className={`py-6 px-6 text-left w-full flex items-center gap-8 rounded-lg ${
-                activeSection === 'Help' ? 'bg-brown-6 text-white' : 'bg-transparent hover:bg-brown-6 hover:text-white'
-              }`}
-              onClick={() => setActiveSection('Help')}
-            >
-              <FaQuestionCircle className={`text-4xl ${activeSection === 'Help' ? 'text-white' : ''}`} /> 
-              <span>FAQ</span>
-            </button>
-          </div>
-          <div className="mt-auto px-4"> {/* Added padding for alignment */}
-            <button
-              className="py-6 px-6 text-left w-full flex items-center gap-4 rounded-lg hover:scale-95 transition duration-200 bg-transparent hover:bg-transparent"
-              onClick={() => setIsLogoutConfirmationOpen(true)}
-            >
-              <FaSignOutAlt className="text-4xl" /> <span>Logout</span>
-            </button>
-          </div>
-        </div>
+    <div className={isDarkMode ? "dark" : ""}>
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 backdrop-blur-sm">
+        <div className="bg-gradient-to-b from-brown-1 to-gray-200 rounded-3xl shadow-2xl w-full h-full md:w-[75vw] md:h-[90vh] relative overflow-hidden flex flex-col md:flex-row border border-brown-3">
+          {/* Sidebar */}
+          <div className="bg-brown-6 dark:bg-brown-800 text-white flex flex-col md:w-1/3 w-full rounded-t-3xl md:rounded-l-3xl shadow-2xl overflow-hidden">
 
-        {/* Main Content */}
-        <div className="w-2/3 relative overflow-y-auto">
-          <button
-            className="absolute top-4 right-4 text-black hover:text-gray-700"
-            onClick={onClose}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+            {/* Profile Header */}
+            <div className="flex flex-col md:flex-col items-center justify-center text-center bg-brown-6 py-6 md:py-10 px-4">
+              <FaUserCircle className="text-[5rem] md:text-[8rem] text-white drop-shadow-md mb-2" />
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-wide">
+                {user?.username ? `Hi, ${user.username}` : 'Loading...'}
+              </h2>
+              <p className="text-xs md:text-sm text-white/80">{user?.email || ''}</p>
+            </div>
 
-          {/* Render content based on active section */}
-          {activeSection === 'Profile' && (
-            <div>
-              <h2 className="text-6xl mt-14 font-semibold text-center text-black">Profile</h2>
-              <div className="overflow-y-auto h-[calc(100%-120px)] p-6">
-                <form className="grid grid-cols-2 gap-8 bg-brown-1 p-6 rounded-3xl h-full pl-28" onSubmit={handleSave}>
-                  <div className="form-control mt-6 col-span-2">
-                    <label className="label">
-                      <span className="label-text text-3xl ml-10 mb-2 font-bold text-black">Email</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-[518px] p-6 border rounded-2xl shadow-xl ml-5 focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
+            {/* Navigation */}
+            <div className="flex md:flex-col justify-center md:justify-start items-center md:items-stretch gap-2 md:gap-3 px-3 py-3 md:p-6 bg-brown-5/20 backdrop-blur-sm overflow-x-auto md:overflow-visible">
+              {['Profile', 'Result', 'Settings', 'Feedback', 'Help'].map((section) => {
+                const icons: any = {
+                  Profile: <FaUser className="text-lg md:text-2xl" />,
+                  Result: <FaFileAlt className="text-lg md:text-2xl" />,
+                  Settings: <FaCog className="text-lg md:text-2xl" />,
+                  Feedback: <FaPencilAlt className="text-lg md:text-2xl" />,
+                  Help: <FaQuestionCircle className="text-lg md:text-2xl" />,
+                };
+                return (
+                  <button
+                    key={section}
+                    onClick={() => setActiveSection(section)}
+                    className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl font-medium text-sm md:text-lg whitespace-nowrap transition-all duration-200 ${
+                      activeSection === section
+                        ? 'bg-white text-brown-6 shadow-md'
+                        : 'hover:bg-brown-5 hover:text-white'
+                    }`}
+                  >
+                    {icons[section]} {section}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Logout Button */}
+            <div className="mt-auto px-4 py-4 bg-brown-5/10 backdrop-blur-sm border-t border-brown-4/40">
+              <button
+                onClick={() => setIsLogoutConfirmationOpen(true)}
+                className="flex items-center justify-center gap-2 bg-brown-5 hover:bg-brown-4 text-white py-3 rounded-xl w-full font-semibold text-sm md:text-base transition-all duration-200"
+              >
+                <FaSignOutAlt className="text-base md:text-lg" /> Logout
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 relative overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8 rounded-b-3xl md:rounded-r-3xl">
+            <button className="absolute top-4 right-4 text-brown-6 hover:text-brown-4 transition-all" onClick={onClose}>
+              <FaTimes size={24} />
+            </button>
+
+            {/* Profile Section */}
+            {activeSection === 'Profile' && (
+              <div className="flex flex-col items-center px-4">
+                {/* Title */}
+                <h2 className="text-3xl md:text-5xl font-bold text-center text-brown-6 mt-6 md:mt-10 mb-6 md:mb-8">
+                  Profile
+                </h2>
+
+                {/* Wrapper for clean width on small screens */}
+                <div className="w-full max-w-xl md:max-w-3xl text-sm md:text-base">
+                  <div className="bg-[#FDF6EF] p-6 md:p-10 rounded-3xl shadow-lg border border-[#CBB197]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-10 md:gap-y-8">
+                      {/* Email */}
+                      <div className="flex flex-col col-span-2">
+                        <label className="text-[#7B5A3C] font-semibold text-base md:text-lg mb-2">
+                          Email Address
+                        </label>
+                        <input
+                          value={user?.email || ''}
+                          disabled
+                          className="p-3 md:p-4 rounded-xl border border-[#CBB197] bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium shadow-sm focus:ring-2 focus:ring-[#B08968] transition-all"
+                        />
+                      </div>
+
+                      {/* Username */}
+                      <div className="flex flex-col col-span-2">
+                        <label className="text-[#7B5A3C] font-semibold text-base md:text-lg mb-2">
+                          Username
+                        </label>
+                        <input
+                          value={user?.username || ''}
+                          disabled
+                          className="p-3 md:p-4 rounded-xl border border-[#CBB197] bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium shadow-sm focus:ring-2 focus:ring-[#B08968] transition-all"
+                        />
+                      </div>
+
+                      {/* First Name */}
+                      <div className="flex flex-col">
+                        <label className="text-[#7B5A3C] font-semibold text-base md:text-lg mb-2">
+                          First Name
+                        </label>
+                        <input
+                          value={user?.first_name || ''}
+                          disabled
+                         className="p-3 md:p-4 rounded-xl border border-[#CBB197] bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium shadow-sm focus:ring-2 focus:ring-[#B08968] transition-all"
+                        />
+                      </div>
+
+                      {/* Middle Name */}
+                      <div className="flex flex-col">
+                        <label className="text-[#7B5A3C] font-semibold text-base md:text-lg mb-2">
+                          Middle Name
+                        </label>
+                        <input
+                          value={user?.middle_name || ''}
+                          disabled
+                        className="p-3 md:p-4 rounded-xl border border-[#CBB197] bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium shadow-sm focus:ring-2 focus:ring-[#B08968] transition-all"
+                        />
+                      </div>
+
+                      {/* Last Name */}
+                      <div className="flex flex-col col-span-2">
+                        <label className="text-[#7B5A3C] font-semibold text-base md:text-lg mb-2">
+                          Last Name
+                        </label>
+                        <input
+                          value={user?.last_name || ''}
+                          disabled
+                         className="p-3 md:p-4 rounded-xl border border-[#CBB197] bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium shadow-sm focus:ring-2 focus:ring-[#B08968] transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Divider line */}
+                    <div className="border-t border-[#CBB197] mt-8 md:mt-10 mb-4 md:mb-6"></div>
+
+                    {/* Footer */}
+                    <div className="text-center">
+                      <p className="text-lg md:text-xl font-semibold text-[#7B5A3C]">
+                        {user?.first_name && user?.last_name
+                          ? `${user.first_name} ${user.last_name}`
+                          : user?.username || 'User'}
+                      </p>
+                      <p className="text-gray-600">{user?.email || ''}</p>
+                    </div>
                   </div>
-                  <div className="form-control col-span-2">
-                    <label className="label">
-                      <span className="label-text text-3xl ml-10 mb-2 font-bold text-black">Username</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-[518px] p-6 border rounded-2xl shadow-xl ml-5 focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
-                  </div>
-                  <div className="form-control mt-[18px]">
-                    <label className="label">
-                      <span className="label-text text-2xl ml-10 font-bold text-black">First Name</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-3/4 p-6 border rounded-2xl shadow-xl ml-5 focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
-                  </div>
-                  <div className="form-control mt-[18px]">
-                    <label className="label">
-                      <span className="label-text text-2xl ml-5 font-bold text-black">Middle Name</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={middleName}
-                      onChange={(e) => setMiddleName(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-3/4 p-6 border rounded-2xl shadow-xl focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text text-2xl ml-10 font-bold text-black">Last Name</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-3/4 p-6 border rounded-2xl shadow-xl ml-5 focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text text-2xl ml-5 font-bold text-black">Ext.</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={extension}
-                      onChange={(e) => setExtension(e.target.value)}
-                      disabled={!isEditing} // Disable input when not editing
-                      className="w-3/4 p-6 border rounded-2xl shadow-xl focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    />
-                  </div>
-                  
-                  <div className="col-span-2 flex justify-end gap-5">
-                    <button
-                      type="button"
-                      onClick={handleEditToggle} // Toggle edit mode
-                      className="px-14 py-3 bg-transparent border-2 border-brown-6 text-black hover:text-white hover:border-brown-700 font-semibold rounded-lg hover:bg-brown-700 transition duration-300 hover:scale-95"
-                    >
-                      {isEditing ? 'Cancel' : 'Edit'} {/* Change button text */}
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!isEditing} // Disable save button when not editing
-                      className={`px-12 py-3 bg-brown-6 text-white font-semibold rounded-lg transition duration-300 hover:scale-95 ${
-                        isEditing ? 'hover:bg-brown-700' : 'opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </form>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Save Confirmation Popup */}
-          {isSaveConfirmationOpen && (
-            <div className="fixed inset-0 flex justify-center items-center text-black bg-black bg-opacity-50">
-            <div className="bg-white pt-16 pb-10 pl-12 pr-10 rounded-lg shadow-md w-full max-w-lg md:max-w-xl lg:max-w-xl">
-              <h2 className="text-3xl font-bold mb-8 items-center pr-0">Are you sure you want to submit?</h2>
-              <div className="flex justify-end gap-5">
-                <button
-                  onClick={() => setIsSaveConfirmationOpen(false)}
-                  className="btn btn-secondary bg-transparent border border-brown-6 text-black text-lg md:text-xl lg:text-xl rounded px-8 py-2 w-28 hover:bg-brown-700 hover:text-white hover:border-brown-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmSave}
-                  className="btn btn-primary bg-brown-6 border-brown-6 text-white rounded-lg text-lg md:text-xl lg:text-xl px-8 py-2 w-28 hover:bg-brown-700 hover:border-brown-700"
-                >
-                  confirm
-                </button>
+
+            {/* Result Section */}
+            {activeSection === 'Result' && (
+              <div className="flex flex-col items-center mt-14 px-4">
+                {!selectedProgram ? (
+                  <>
+                    {/* Header */}
+                    <h2 className="text-5xl font-extrabold text-[#6B4226] mb-14 tracking-wide drop-shadow-sm">
+                      Your Results
+                    </h2>
+
+                    {/* Recommended Programs */}
+                    <div className="flex flex-col items-center w-full max-w-2xl gap-6 mb-20">
+                      {recommendedPrograms.length > 0 ? (
+                        recommendedPrograms.map((p) => (
+                          <div
+                            key={p.program_id}
+                            onClick={() => fetchProgramDescription(p.program_name)}
+                            className="cursor-pointer w-full bg-gradient-to-br from-[#FDF6EF] to-[#FAEEE3] hover:from-[#FAEEE3] hover:to-[#FDF6EF] border border-[#D3BDA3] rounded-3xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 text-center py-6"
+                          >
+                            <h3 className="text-3xl font-bold text-[#5C3D2E] tracking-tight">
+                              {p.program_name}
+                            </h3>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-lg italic">
+                          No recommended programs found.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Personality Type & Knowledge */}
+                    <div className="flex flex-col md:flex-row justify-center items-stretch gap-10 w-full max-w-4xl">
+                      
+                      {/* Personality Card */}
+                      <div className="flex flex-col flex-1 items-center bg-white/70 dark:bg-gray-700/70 backdrop-blur-md p-8 rounded-3xl border border-[#E1C9A7] shadow-lg hover:shadow-xl transition-all duration-300">
+                        <p className="text-lg font-medium text-[#6B4226] mb-4 uppercase tracking-wide">
+                          Personality Type
+                        </p>
+
+                        <div className="flex flex-col items-center gap-3">
+                          {Array.isArray(personalityType) && personalityType.length > 0 ? (
+                            personalityType.map((type, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-[#E7D4C0] px-8 py-3 rounded-full text-[#5C3D2E] 
+                                          text-xl font-bold shadow-inner border border-[#CBB197]"
+                              >
+                                {type}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xl text-[#5C3D2E]">N/A</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Strong Knowledge Card */}
+                      <div className="flex flex-col flex-1 items-center bg-white/70 dark:bg-gray-700/70 backdrop-blur-md p-8 rounded-3xl border border-[#E1C9A7] shadow-lg hover:shadow-xl transition-all duration-300">
+                        <p className="text-lg font-medium text-[#6B4226] mb-4 uppercase tracking-wide">
+                          Strong Knowledge Area
+                        </p>
+
+                        <div className="flex flex-col items-center gap-3">
+                          {Array.isArray(knowledgeScore) && knowledgeScore.length > 0 ? (
+                            knowledgeScore.map((k, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-[#E7D4C0] px-8 py-3 rounded-full text-[#5C3D2E] 
+                                          text-xl font-bold shadow-inner border border-[#CBB197]"
+                              >
+                                {k.subject} ({k.score}%)
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xl text-[#5C3D2E]">N/A</div>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </>
+                ) : (
+                  // Program Details View
+                  <div className="flex flex-col items-center mt-10 w-full max-w-2xl">
+                    <h2 className="text-4xl font-extrabold text-center text-[#6B4226] mb-8">
+                      {selectedProgram.program_name}
+                    </h2>
+                    <div className="bg-gradient-to-br from-[#FFF9ED] to-[#FAF4E6] text-[#4A3B2C] text-lg leading-relaxed rounded-3xl shadow-lg border border-[#D3BDA3] p-10 w-full whitespace-pre-line">
+                      {selectedProgram.program_details || 'No description available.'}
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedProgram(null)}
+                      className="mt-10 px-8 py-3 bg-[#6B4226] hover:bg-[#52311D] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      ← Back to Results
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-          )}
-
-          {activeSection === 'Settings' && (
-            <div className="p-6 h-full flex flex-col">
-              <h2 className="text-6xl mt-8 font-semibold mb-8 text-center text-black">Settings</h2>
-              <form className="bg-brown-1 w-full h-[calc(100%-70px)] p-10 rounded-3xl flex flex-col items-center justify-center gap-8">
-                <button
-                  type="button"
-                  onClick={() => setIsChangePasswordOpen(true)} // Open ChangePasswordModal
-                  className="w-[500px] flex h-28 justify-between items-center shadow-xl bor hover:border-brown-2 text-left text-2xl font-semibold bg-white text-black border rounded-3xl p-4 hover:scale-105 transition duration-200 hover:bg-brown-2"
-                >
-                  Change Password
-                </button>
-                <button
-                  type="button"
-                  className="w-[500px] flex h-28 justify-between items-center shadow-xl hover:border-brown-2 text-left text-2xl font-semibold bg-white text-black border rounded-3xl p-4 hover:scale-105 transition duration-200 hover:bg-brown-2"
-                  onClick={() => setIsDarkMode(!isDarkMode)}
-                >
-                  <span className="flex items-center gap-4">
-                    <FaCog className="text-3xl" /> Dark Mode
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={isDarkMode}
-                    readOnly
-                    className="toggle w-16 h-10 toggle-error bg-gray-300 checked:bg-brown-6"
-                  />
-                </button>
-                <button
-                  type="button"
-                  className="w-[500px] flex h-28 justify-between items-center shadow-xl hover:border-border-2 text-left text-2xl font-semibold bg-white text-black border rounded-3xl p-4 hover:scale-105 transition duration-200 hover:bg-brown-2"
-                  onClick={() => setIsNotificationsEnabled(!isNotificationsEnabled)}
-                >
-                  <span className="flex items-center gap-4">
-                    <FaBell className="text-3xl" /> Enable Notifications
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={isNotificationsEnabled}
-                    readOnly
-                    className="toggle w-16 h-10 toggle-primary bg-gray-300 checked:bg-brown-6"
-                  />
-                </button>
-              </form>
-              <ChangePasswordModal
-                isOpen={isChangePasswordOpen}
-                onClose={() => setIsChangePasswordOpen(false)} // Close ChangePasswordModal
-              />
-            </div>
-          )}
-
-          {activeSection === 'Help' && (
-            <div className="p-6">
-              <h2 className="text-5xl font-bold mb-8 mt-14 text-center text-black">Frequently Asked Questions</h2>
-              <form className="bg-brown-1 p-6 rounded-3xl">
-                <div className="flex flex-col items-center mt-20 mb-20">
-                  {faqs.map((faq, index) => (
-                    <div key={index} className="mb-4 flex flex-col items-center">
+            )}
+            {/* Feedback Section */}
+            {activeSection === 'Feedback' && (
+              <div>
+                <h2 className="text-5xl font-bold text-center text-brown-6 mt-10 mb-8">Feedback</h2>
+                <div className="flex flex-col items-center gap-6">
+                  {submittedFeedback ? (
+                    <div className="bg-brown-1 p-6 rounded-3xl shadow-xl w-full max-w-lg text-center">
+                      <h3 className="text-3xl font-semibold mb-4 text-brown-8">Your Feedback</h3>
+                      <div className="flex justify-center gap-2 mb-4">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <FaStar
+                            key={star}
+                            className={`text-3xl ${star <= submittedFeedback.rating ? 'text-brown-6' : 'text-gray-300'}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-gray-800 dark:text-gray-100 italic">
+                        “{submittedFeedback.comments || 'No comment provided.'}”
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setRating(star)}
+                            className={`text-4xl ${rating && rating >= star ? 'text-brown-6' : 'text-gray-400'}`}
+                          >
+                            <FaStar />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        className="w-full max-w-lg h-40 p-4 border rounded-2xl shadow-xl bg-white text-gray-900"
+                        placeholder="Write your feedback here..."
+                      />
                       <button
-                        className="w-[500px] flex h-24 justify-between items-center shadow-xl hover:border-brown-2 text-left text-2xl font-semibold bg-white text-black border rounded-3xl p-4 hover:scale-105 transition duration-200 hover:bg-brown-2"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleQuestion(index);
+                        onClick={async () => {
+                          if (!rating) return alert('Please select a rating.');
+                          const userId = user?.user_id;
+                          if (!userId) return alert('User not found.');
+
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/feedback`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ user_id: userId, feedback: rating, comments }),
+                            });
+                            if (!res.ok) throw new Error('Failed to submit feedback');
+                            setSubmittedFeedback({ rating, comments });
+                            alert('Thank you for your feedback!');
+                          } catch (err) {
+                            console.error(err);
+                            alert('Error submitting feedback.');
+                          }
                         }}
+                        className="px-6 py-3 bg-brown-6 dark:bg-brown-800 text-white rounded-xl hover:bg-brown-7 transition-all"
+                      >
+                        Submit Feedback
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Settings Section */}
+            {activeSection === 'Settings' && (
+              <div>
+                <h2 className="text-5xl font-bold text-center text-brown-6 mt-10 mb-8">Settings</h2>
+                <div className="flex flex-col items-center gap-5">
+                  <button
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="w-[500px] h-20 bg-brown-1 hover:bg-brown-2 shadow-md text-gray-900 font-semibold rounded-2xl flex justify-center items-center transition-transform hover:scale-105"
+                  >
+                    Change Password
+                  </button>
+                  <label className="w-[500px] h-20 bg-brown-1 shadow-md text-gray-900 font-semibold rounded-2xl flex justify-between items-center px-6 hover:scale-105 transition-transform">
+                    Dark Mode
+                    <input type="checkbox" checked={isDarkMode} onChange={() => setIsDarkMode(!isDarkMode)} />
+                  </label>
+                    <div className="w-[500px] bg-brown-1 shadow-md text-gray-900 font-semibold rounded-2xl px-6 py-4 hover:scale-105 transition-transform">
+                      <button
+                        onClick={() => setIsLLMOpen(!isLLMOpen)}
+                        className="w-full flex justify-between items-center text-lg"
+                      >
+                        Large Language Model
+                        <FaChevronDown
+                          className={`transition-transform ${isLLMOpen ? "rotate-180" : ""}`}
+                        />
+                      </button>
+
+                      {isLLMOpen && (
+                        <div className="mt-3 bg-white rounded-xl border border-brown-3 shadow-inner p-3 flex flex-col gap-3">
+
+                          {AVAILABLE_LLMS.map((model) => (
+                            <button
+                              key={model.key}
+                              onClick={() => {
+                                setSelectedLLM(model.key); // store backend key
+                                setIsLLMOpen(false);
+                              }}
+                              className={`px-4 py-2 rounded-xl text-left transition-all ${
+                                selectedLLM === model.key
+                                  ? "bg-brown-2 text-brown-8 font-bold"
+                                  : "hover:bg-brown-1"
+                              }`}
+                            >
+                              {model.name} {/* display name */}
+                            </button>
+                          ))}
+
+                        </div>
+                      )}
+
+                      {/* Selected model display */}
+                      <p className="mt-2 text-brown-8 text-sm">
+                        Selected Model: <span className="font-bold">
+                          {AVAILABLE_LLMS.find(m => m.key === selectedLLM)?.name || selectedLLM}
+                        </span>
+                      </p>
+                    </div>
+                </div>
+              </div>
+            )}
+
+            {/* Help Section */}
+            {activeSection === 'Help' && (
+              <div>
+                <h2 className="text-5xl font-bold text-center text-brown-6 mt-10 mb-8">Help & FAQs</h2>
+                <div className="flex flex-col items-center gap-4">
+                  {faqs.map((faq, i) => (
+                    <div key={i} className="w-full max-w-xl">
+                      <button
+                        onClick={() => toggleQuestion(i)}
+                        className="w-full flex justify-between items-center bg-brown-1 text-gray-900 font-semibold text-lg p-4 rounded-2xl shadow-md hover:scale-105 transition-all"
                       >
                         {faq.question}
-                        <FaChevronDown className={`transition-transform ${activeQuestion === index ? 'rotate-180' : ''}`} />
+                        <FaChevronDown
+                          className={`transition-transform ${activeQuestion === i ? 'rotate-180' : ''}`}
+                        />
                       </button>
-                      {activeQuestion === index && (
-                        <div className="w-[500px] mt-2 p-3 bg-brown-2 shadow-xl text-black border rounded-lg">
+                      {activeQuestion === i && (
+                        <div className="mt-2 bg-white border-l-4 border-brown-6 p-4 rounded-2xl text-gray-700 shadow-inner">
                           {faq.answer}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-              </form>
-            </div>
-          )}
-
-          {activeSection === 'Result' && (
-            <div className="p-6">
-              <h2 className="text-5xl font-bold mb-8 mt-14 text-center text-black">Recommended Programs</h2>
-              <div className="bg-brown-1 p-6 rounded-3xl">
-                <div className="flex flex-col items-center gap-6">
-                  {recommendedPrograms.map((program, index) => (
-                    <button
-                      key={index}
-                      className="w-full h-[85px] flex justify-center items-center shadow-xl bg-white text-black border hover:bg-brown-2 rounded-3xl p-6 text-2xl font-semibold hover:scale-105 transition duration-200"
-                    >
-                      {program.program}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-10 flex justify-center gap-10">
-                  <button className="w-full h-80 flex justify-center items-center shadow-xl hover:bg-brown-2 bg-white text-black border rounded-3xl text-xl font-semibold hover:scale-105 transition duration-200">
-                    Personality: {personalityType}
-                  </button>
-                  <button className="w-full h-80 flex justify-center items-center shadow-xl hover:bg-brown-2 bg-white text-black border rounded-3xl text-xl font-semibold hover:scale-105 transition duration-200">
-                    Knowledge: {knowledgePercentage}%
-                  </button>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {activeSection === 'Feedback' && (
-            <div className="p-6 h-full flex flex-col">
-              <h2 className="text-6xl mt-8 font-semibold mb-8 text-center text-black">Feedback</h2>
-              <form className="bg-brown-1 w-full h-[calc(100%-70px)] p-10 rounded-3xl flex flex-col items-center justify-center gap-8">
-                <div className="flex flex-col items-center">
-                  <label className="text-3xl font-semibold mb-4 text-black">Rate Us</label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className={`text-6xl ${rating !== null && rating >= star ? 'text-brown-6' : 'text-gray-400'}`} // Increased size to text-5xl
-                      >
-                        <FaStar />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="w-full">
-                  <label className="text-3xl font-semibold mb-4 text-black">Comments</label>
-                  <textarea
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                    className="w-full h-40 p-4 border rounded-2xl shadow-xl focus:outline-none focus:ring-2 focus:ring-brown-700 bg-white text-black"
-                    placeholder="Write your feedback here..."
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('Feedback submitted:', { rating, comments });
-                    setRating(null);
-                    setComments('');
-                    setActiveSection('Profile'); // Return to Profile after submission
-                  }}
-                  className="px-12 py-3 bg-brown-6 text-white font-semibold rounded-lg transition duration-300 hover:scale-95 hover:bg-brown-700"
-                >
-                  Submit
-                </button>
-              </form>
-            </div>
-          )}
-
-          {isLogoutConfirmationOpen && (
+            {/* Modals */}
+            <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} />
             <LogoutConfirmationModal
               isOpen={isLogoutConfirmationOpen}
-              onClose={() => setIsLogoutConfirmationOpen(false)} // Close LogoutConfirmationModal
+              onClose={() => setIsLogoutConfirmationOpen(false)}
               onConfirm={() => {
-                logout(); // Perform logout
-                setIsLogoutConfirmationOpen(false); // Close LogoutConfirmationModal
-                onClose(); // Close the ProfileModal
-                console.log('User confirmed logout'); // Debugging log
+                logout();
+                setIsLogoutConfirmationOpen(false);
+                onClose();
               }}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>
